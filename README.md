@@ -51,6 +51,7 @@ If you find this work or code useful, please cite our [paper](https://arxiv.org/
 - [License](#license)
 
 # News
+- 25/03/2026: One step towards generalized unified occupnay prediction with [OccAny: Generalized Unconstrained Urban 3D Occupancy](https://valeoai.github.io/OccAny/)
 - 05/12/2023: Check out our recent work [PaSCo: Urban 3D Panoptic Scene Completion with Uncertainty Awareness](https://astra-vision.github.io/PaSCo/) :rotating_light:
 - 20/04/2023: Check out other [camera-only 3D occupancy prediction projects](#related-camera-only-3d-occupancy-prediction-projects)
 - 28/06/2022: We added [MonoScene demo on Hugging Face](https://huggingface.co/spaces/CVPR/MonoScene) 
