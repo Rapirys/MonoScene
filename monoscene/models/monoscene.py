@@ -226,7 +226,7 @@ class MonoScene(pl.LightningModule):
         y_pred = ssc_pred.detach().cpu().numpy()
         y_pred = np.argmax(y_pred, axis=1)
         eval_mask = None
-        if self.use_visible_mask and "visible_mask_1_4" in batch:
+        if self.use_visible_mask and batch.get("visible_mask_1_4"):
             eval_mask = torch.stack(batch["visible_mask_1_4"]).cpu().numpy()
         metric.add_batch(y_pred, y_true, nonempty=eval_mask)
 
