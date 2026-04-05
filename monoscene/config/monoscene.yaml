@@ -14,6 +14,7 @@ logdir: '/path/to/NYU/logdir'
 
 
 fp_loss: true 
+float32_matmul_precision: "high"
 frustum_size: 8 
 batch_size: 1
 n_gpus: 1

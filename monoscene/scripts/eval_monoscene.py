@@ -12,6 +12,7 @@ from hydra.utils import get_original_cwd
 @hydra.main(version_base=None, config_path="../config", config_name="monoscene.yaml")
 def main(config: DictConfig):
     torch.set_grad_enabled(False)
+    torch.set_float32_matmul_precision(config.float32_matmul_precision)
     if config.dataset == "kitti":
         config.batch_size = 1
         n_classes = 20
