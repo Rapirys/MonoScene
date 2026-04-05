@@ -68,7 +68,7 @@ def main(config: DictConfig):
     model.eval()
     data_module.setup()
     val_dataloader = data_module.val_dataloader()
-    trainer.test(model, test_dataloaders=val_dataloader)
+    trainer.test(model, dataloaders=val_dataloader)
 
 
 if __name__ == "__main__":
