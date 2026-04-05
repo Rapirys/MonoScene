@@ -13,7 +13,7 @@ from tqdm import tqdm
 import pickle
 
 
-@hydra.main(config_name="../config/monoscene.yaml")
+@hydra.main(version_base=None, config_path="../config", config_name="monoscene.yaml")
 def main(config: DictConfig):
     torch.set_grad_enabled(False)
 
@@ -79,6 +79,7 @@ def main(config: DictConfig):
         project_scale=project_scale,
         fp_loss=config.fp_loss,
         full_scene_size=full_scene_size,
+        weights_only=False,
     )
     model.cuda()
     model.eval()

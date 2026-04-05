@@ -40,7 +40,7 @@ def majority_pooling(grid, k_size=2):
     return result
 
 
-@hydra.main(config_name="../../config/monoscene.yaml")
+@hydra.main(version_base=None, config_path="../../config", config_name="monoscene.yaml")
 def main(config: DictConfig):
     scene_size = (256, 256, 32)
     sequences = ["00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10"]

@@ -22,7 +22,7 @@ import torch
 hydra.output_subdir = None
 
 
-@hydra.main(config_name="../config/monoscene.yaml")
+@hydra.main(version_base=None, config_path="../config", config_name="monoscene.yaml")
 def main(config: DictConfig):
     exp_name = config.exp_prefix
     exp_name += "_{}_{}".format(config.dataset, config.run)
@@ -136,37 +136,18 @@ def main(config: DictConfig):
         checkpoint_callbacks = False
 
     model_path = os.path.join(logdir, exp_name, "checkpoints/last.ckpt")
-    if os.path.isfile(model_path):
-        # Continue training from last.ckpt
-        trainer = Trainer(
-            callbacks=checkpoint_callbacks,
-            resume_from_checkpoint=model_path,
-            sync_batchnorm=True,
-            deterministic=False,
-            max_epochs=max_epochs,
-            gpus=config.n_gpus,
-            logger=logger,
-            check_val_every_n_epoch=1,
-            log_every_n_steps=10,
-            flush_logs_every_n_steps=100,
-            accelerator="ddp",
-        )
-    else:
-        # Train from scratch
-        trainer = Trainer(
-            callbacks=checkpoint_callbacks,
-            sync_batchnorm=True,
-            deterministic=False,
-            max_epochs=max_epochs,
-            gpus=config.n_gpus,
-            logger=logger,
-            check_val_every_n_epoch=1,
-            log_every_n_steps=10,
-            flush_logs_every_n_steps=100,
-            accelerator="ddp",
-        )
-
-    trainer.fit(model, data_module)
+    trainer = Trainer(
+        callbacks=checkpoint_callbacks,
+        sync_batchnorm=True,
+        deterministic=False,
+        max_epochs=max_epochs,
+        accelerator="gpu",
+        devices=config.n_gpus,
+        logger=logger,
+        check_val_every_n_epoch=1,
+        log_every_n_steps=10,
+    )
+    trainer.fit(model, data_module, ckpt_path=model_path if os.path.isfile(model_path) else None)
 
 
 if __name__ == "__main__":

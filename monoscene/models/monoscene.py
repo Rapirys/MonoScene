@@ -235,7 +235,7 @@ class MonoScene(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         self.step(batch, "val", self.val_metrics)
 
-    def validation_epoch_end(self, outputs):
+    def on_validation_epoch_end(self):
         metric_list = [("train", self.train_metrics), ("val", self.val_metrics)]
 
         for prefix, metric in metric_list:
@@ -255,7 +255,7 @@ class MonoScene(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         self.step(batch, "test", self.test_metrics)
 
-    def test_epoch_end(self, outputs):
+    def on_test_epoch_end(self):
         classes = self.class_names
         metric_list = [("test", self.test_metrics)]
         for prefix, metric in metric_list:

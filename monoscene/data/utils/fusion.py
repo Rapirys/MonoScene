@@ -1,4 +1,4 @@
-"""
+r"""
 Most of the code is taken from https://github.com/andyzeng/tsdf-fusion-python/blob/master/fusion.py
 
 @inproceedings{zeng20163dmatch,

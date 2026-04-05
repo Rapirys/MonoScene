@@ -9,7 +9,7 @@ import os
 from hydra.utils import get_original_cwd
 
 
-@hydra.main(config_name="../config/monoscene.yaml")
+@hydra.main(version_base=None, config_path="../config", config_name="monoscene.yaml")
 def main(config: DictConfig):
     torch.set_grad_enabled(False)
     if config.dataset == "kitti":
@@ -42,7 +42,10 @@ def main(config: DictConfig):
         )
 
     trainer = Trainer(
-        sync_batchnorm=True, deterministic=True, gpus=config.n_gpus, accelerator="ddp"
+        sync_batchnorm=True,
+        deterministic=True,
+        accelerator="gpu",
+        devices=config.n_gpus,
     )
 
     if config.dataset == "NYU":
@@ -60,6 +63,7 @@ def main(config: DictConfig):
         project_scale=project_scale,
         fp_loss=config.fp_loss,
         full_scene_size=full_scene_size,
+        weights_only=False,
     )
     model.eval()
     data_module.setup()

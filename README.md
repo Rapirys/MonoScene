@@ -68,13 +68,13 @@ If you find this work or code useful, please cite our [paper](https://arxiv.org/
 1. Create conda environment:
 
 ```
-$ conda create -y -n monoscene python=3.7
+$ conda create -y -n monoscene python=3.12
 $ conda activate monoscene
 ```
-2. This code was implemented with python 3.7, pytorch 1.7.1 and CUDA 10.2. Please install [PyTorch](https://pytorch.org/): 
+2. Install a recent [PyTorch](https://pytorch.org/) build for your CUDA or CPU setup. MonoScene now targets Python 3.12, PyTorch 2.8+, NumPy 2+, and Lightning 2+.
 
 ```
-$ conda install pytorch==1.7.1 torchvision==0.8.2 torchaudio==0.7.2 cudatoolkit=10.2 -c pytorch
+$ pip install torch torchvision torchaudio
 ```
 
 3. Install the additional dependencies:
@@ -84,18 +84,13 @@ $ cd MonoScene/
 $ pip install -r requirements.txt
 ```
 
-4. Install tbb:
+4. Install `tbb`:
 
 ```
 $ conda install -c bioconda tbb=2020.2
 ```
 
-5. Downgrade torchmetrics to 0.6.0
-```
-$ pip install torchmetrics==0.6.0
-```
-
-6. Finally, install MonoScene:
+5. Finally, install MonoScene:
 
 ```
 $ pip install -e ./
