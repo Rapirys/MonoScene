@@ -14,6 +14,15 @@ class Kitti360DataModule(pl.LightningDataModule):
         self.sequences = sequences
         self.n_scans = n_scans
 
+    def _dataloader_kwargs(self):
+        if self.num_workers == 0:
+            return {}
+        return {
+            "worker_init_fn": worker_init_fn,
+            "persistent_workers": True,
+            "multiprocessing_context": "spawn",
+        }
+
     def setup(self, stage=None):
         self.ds = Kitti360Dataset(
             root=self.root, sequences=self.sequences, n_scans=self.n_scans
@@ -27,6 +36,6 @@ class Kitti360DataModule(pl.LightningDataModule):
             num_workers=self.num_workers,
             shuffle=False,
             pin_memory=True,
-            worker_init_fn=worker_init_fn,
             collate_fn=collate_fn,
+            **self._dataloader_kwargs(),
         )

@@ -23,6 +23,15 @@ class NYUDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         self.frustum_size = frustum_size
 
+    def _dataloader_kwargs(self):
+        if self.num_workers == 0:
+            return {}
+        return {
+            "worker_init_fn": worker_init_fn,
+            "persistent_workers": True,
+            "multiprocessing_context": "spawn",
+        }
+
     def setup(self, stage=None):
         self.train_ds = NYUDataset(
             split="train",
@@ -51,8 +60,8 @@ class NYUDataModule(pl.LightningDataModule):
             num_workers=self.num_workers,
             shuffle=True,
             pin_memory=True,
-            worker_init_fn=worker_init_fn,
             collate_fn=collate_fn,
+            **self._dataloader_kwargs(),
         )
 
     def val_dataloader(self):
@@ -64,6 +73,7 @@ class NYUDataModule(pl.LightningDataModule):
             shuffle=False,
             pin_memory=True,
             collate_fn=collate_fn,
+            **self._dataloader_kwargs(),
         )
 
     def test_dataloader(self):
@@ -75,4 +85,5 @@ class NYUDataModule(pl.LightningDataModule):
             shuffle=False,
             pin_memory=True,
             collate_fn=collate_fn,
+            **self._dataloader_kwargs(),
         )

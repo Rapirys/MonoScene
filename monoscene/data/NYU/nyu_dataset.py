@@ -59,7 +59,6 @@ class NYUDataset(Dataset):
         filename = os.path.basename(file_path)
         name = filename[:-4]
 
-        os.makedirs(self.base_dir, exist_ok=True)
         filepath = os.path.join(self.base_dir, name + ".pkl")
 
         with open(filepath, "rb") as handle:
