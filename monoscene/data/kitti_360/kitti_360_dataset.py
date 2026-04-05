@@ -103,7 +103,7 @@ class Kitti360Dataset(Dataset):
         data["sequence"] = sequence
 
         img = Image.open(img_path).convert("RGB")
-        img = np.array(img, dtype=np.float32, copy=False) / 255.0
+        img = np.asarray(img, dtype=np.float32) / 255.0
         img = self.normalize_rgb(img)
         data["img"] = img
 

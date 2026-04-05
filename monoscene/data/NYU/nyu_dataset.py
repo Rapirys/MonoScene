@@ -116,7 +116,7 @@ class NYUDataset(Dataset):
             img = self.color_jitter(img)
 
         # PIL to numpy
-        img = np.array(img, dtype=np.float32, copy=False) / 255.0
+        img = np.asarray(img, dtype=np.float32) / 255.0
 
         # randomly fliplr the image
         if np.random.rand() < self.fliplr:

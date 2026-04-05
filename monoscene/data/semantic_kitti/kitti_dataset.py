@@ -160,7 +160,7 @@ class KittiDataset(Dataset):
             img = self.color_jitter(img)
 
         # PIL to numpy
-        img = np.array(img, dtype=np.float32, copy=False) / 255.0
+        img = np.asarray(img, dtype=np.float32) / 255.0
         img = img[:370, :1220, :]  # crop image
 
         # Fliplr the image
