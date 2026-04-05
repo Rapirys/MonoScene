@@ -43,7 +43,7 @@ def main(config: DictConfig):
 
     trainer = Trainer(
         sync_batchnorm=True,
-        deterministic=True,
+        deterministic=False, #TODO make deterministic
         accelerator="gpu",
         devices=config.n_gpus,
     )
@@ -63,6 +63,7 @@ def main(config: DictConfig):
         project_scale=project_scale,
         fp_loss=config.fp_loss,
         full_scene_size=full_scene_size,
+        use_visible_mask=config.use_visible_mask,
         weights_only=False,
     )
     model.eval()
