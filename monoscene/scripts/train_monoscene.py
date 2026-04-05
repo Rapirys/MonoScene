@@ -24,6 +24,7 @@ hydra.output_subdir = None
 
 @hydra.main(version_base=None, config_path="../config", config_name="monoscene.yaml")
 def main(config: DictConfig):
+    torch.set_float32_matmul_precision(config.float32_matmul_precision)
     exp_name = config.exp_prefix
     exp_name += "_{}_{}".format(config.dataset, config.run)
     exp_name += "_FrusSize_{}".format(config.frustum_size)
