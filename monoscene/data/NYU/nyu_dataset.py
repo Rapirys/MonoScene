@@ -10,6 +10,13 @@ from monoscene.data.utils.helpers import (
     compute_local_frustums,
     compute_CP_mega_matrix,
 )
+from monoscene.data.NYU.params import (
+    NYU_CAM_K,
+    NYU_VOXEL_SIZE,
+    NYU_IMG_W,
+    NYU_IMG_H,
+    NYU_SCENE_SIZE,
+)
 import pickle
 import torch.nn.functional as F
 
@@ -33,11 +40,11 @@ class NYUDataset(Dataset):
         self.base_dir = os.path.join(preprocess_root, "base", "NYU" + split)
         self.fliplr = fliplr
 
-        self.voxel_size = 0.08  # 0.08m
-        self.scene_size = (4.8, 4.8, 2.88)  # (4.8m, 4.8m, 2.88m)
-        self.img_W = 640
-        self.img_H = 480
-        self.cam_k = np.array([[518.8579, 0, 320], [0, 518.8579, 240], [0, 0, 1]])
+        self.voxel_size = NYU_VOXEL_SIZE
+        self.scene_size = NYU_SCENE_SIZE
+        self.img_W = NYU_IMG_W
+        self.img_H = NYU_IMG_H
+        self.cam_k = NYU_CAM_K
 
         self.color_jitter = (
             transforms.ColorJitter(*color_jitter) if color_jitter else None

@@ -121,6 +121,66 @@ def vox2pix(cam_E, cam_k,
     return projected_pix, fov_mask, pix_z
 
 
+def depth2vox(cam_pose, cam_k, vox_origin, voxel_size, img_W, img_H, scene_size, depth):
+    """
+    compute the directly visible voxel mask from a depth map
+
+    Parameters:
+    ----------
+    cam_pose: 4x4
+        camera pose in the world coordinate
+    cam_k: 3x3
+        camera intrinsics
+    vox_origin: (3,)
+        world coordinates of the voxel at index (0, 0, 0)
+    img_W: int
+        image width
+    img_H: int
+        image height
+    scene_size: (3,)
+        scene size in meter
+    depth: (img_H, img_W)
+        depth image
+
+    Returns
+    -------
+    visible_mask: (N,)
+        Voxels mask indice directly visible voxels
+    """
+    vol_bnds = np.zeros((3, 2))
+    vol_bnds[:, 0] = vox_origin
+    vol_bnds[:, 1] = vox_origin + np.array(scene_size)
+
+    vol_dim = np.ceil((vol_bnds[:, 1] - vol_bnds[:, 0]) / voxel_size).copy(order="C").astype(int)
+    visible_mask = np.zeros(vol_dim, dtype=np.bool_)
+
+    pixel_y, pixel_x = np.nonzero(depth)
+    pixel_depth = depth[pixel_y, pixel_x] / 8000.0
+    camera_points = np.stack([
+        (pixel_x - cam_k[0, 2]) * pixel_depth / cam_k[0, 0],
+        (pixel_y - cam_k[1, 2]) * pixel_depth / cam_k[1, 1],
+        pixel_depth], axis=1)
+    world_points = fusion.rigid_transform(camera_points, cam_pose)
+    voxel_coordinates = np.floor((world_points - vox_origin) / voxel_size).astype(int)
+
+    valid_voxels = (
+        (voxel_coordinates[:, 0] >= 0)
+        & (voxel_coordinates[:, 0] < vol_dim[0])
+        & (voxel_coordinates[:, 1] >= 0)
+        & (voxel_coordinates[:, 1] < vol_dim[1])
+        & (voxel_coordinates[:, 2] >= 0)
+        & (voxel_coordinates[:, 2] < vol_dim[2])
+    )
+    voxel_coordinates = np.unique(voxel_coordinates[valid_voxels], axis=0)
+    visible_mask[
+        voxel_coordinates[:, 0],
+        voxel_coordinates[:, 1],
+        voxel_coordinates[:, 2],
+    ] = True
+
+    return visible_mask
+
+
 def compute_local_frustum(pix_x, pix_y, min_x, max_x, min_y, max_y, pix_z):
     valid_pix = np.logical_and(pix_x >= min_x,
                 np.logical_and(pix_x < max_x,

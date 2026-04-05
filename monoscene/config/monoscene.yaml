@@ -14,8 +14,9 @@ logdir: '/path/to/NYU/logdir'
 
 
 fp_loss: true 
+use_visible_mask: true
 float32_matmul_precision: "medium"
-frustum_size: 8 
+frustum_size: 8
 batch_size: 1
 n_gpus: 1
 num_workers_per_gpu: 3 
@@ -34,6 +35,7 @@ geo_scal_loss: true
 project_1_2: true
 project_1_4: true
 project_1_8: true
+
 
 
 

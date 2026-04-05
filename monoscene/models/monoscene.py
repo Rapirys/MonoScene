@@ -34,6 +34,7 @@ class MonoScene(pl.LightningModule):
         sem_scal_loss=True,
         lr=1e-4,
         weight_decay=1e-4,
+        use_visible_mask=False,
     ):
         super().__init__()
 
@@ -51,6 +52,7 @@ class MonoScene(pl.LightningModule):
         self.class_weights = class_weights
         self.lr = lr
         self.weight_decay = weight_decay
+        self.use_visible_mask = use_visible_mask
 
         self.projects = {}
         self.scale_2ds = [1, 2, 4, 8]  # 2D scales
@@ -223,7 +225,10 @@ class MonoScene(pl.LightningModule):
         y_true = target.cpu().numpy()
         y_pred = ssc_pred.detach().cpu().numpy()
         y_pred = np.argmax(y_pred, axis=1)
-        metric.add_batch(y_pred, y_true)
+        eval_mask = None
+        if self.use_visible_mask and "visible_mask_1_4" in batch:
+            eval_mask = torch.stack(batch["visible_mask_1_4"]).cpu().numpy()
+        metric.add_batch(y_pred, y_true, nonempty=eval_mask)
 
         self.log(step_type + "/loss", loss.detach(), on_epoch=True, sync_dist=True)
 

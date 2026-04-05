@@ -6,6 +6,15 @@ import glob
 import pickle
 import hydra
 from omegaconf import DictConfig
+from PIL import Image
+from monoscene.data.utils.helpers import depth2vox
+from monoscene.data.NYU.params import (
+    NYU_CAM_K,
+    NYU_VOXEL_SIZE,
+    NYU_IMG_W,
+    NYU_IMG_H,
+    NYU_SCENE_SIZE,
+)
 
 
 seg_class_map = [
@@ -47,7 +56,6 @@ seg_class_map = [
     11,
     11,
 ]
-
 
 def _rle2voxel(rle, voxel_size=(240, 144, 240), rle_filename=""):
     r"""Read voxel label data from file (RLE compression), and convert it to fully occupancy labeled voxels.
@@ -141,8 +149,6 @@ def _downsample_label(label, voxel_size=(240, 144, 240), downscale=4):
             ]
             label_downscale[x, y, z] = np.argmax(np.bincount(label_i_s))
     return label_downscale
-
-
 @hydra.main(version_base=None, config_path="../../config", config_name="monoscene.yaml")
 def main(config: DictConfig):
     scene_size = (240, 144, 240)
@@ -161,9 +167,13 @@ def main(config: DictConfig):
 
             vox_origin, cam_pose, rle = _read_rle(scan)
 
+            depth = np.array(Image.open(os.path.join(root, name + ".png")), dtype=np.int32)
             target_1_1 = _rle2voxel(rle, scene_size, scan)
             target_1_4 = _downsample_label(target_1_1, scene_size, 4)
             target_1_16 = _downsample_label(target_1_1, scene_size, 16)
+            visible_mask_1_4 = depth2vox(
+                cam_pose, NYU_CAM_K, vox_origin, NYU_VOXEL_SIZE, NYU_IMG_W, NYU_IMG_H, NYU_SCENE_SIZE, depth)
+            visible_mask_1_4 = np.moveaxis(visible_mask_1_4, [0, 1, 2], [0, 2, 1])
 
             data = {
                 "cam_pose": cam_pose,
@@ -171,6 +181,7 @@ def main(config: DictConfig):
                 "name": name,
                 "target_1_4": target_1_4,
                 "target_1_16": target_1_16,
+                "visible_mask_1_4": visible_mask_1_4,
             }
 
             with open(filepath, "wb") as handle:

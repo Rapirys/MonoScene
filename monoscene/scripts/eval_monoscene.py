@@ -64,6 +64,7 @@ def main(config: DictConfig):
         project_scale=project_scale,
         fp_loss=config.fp_loss,
         full_scene_size=full_scene_size,
+        use_visible_mask=config.use_visible_mask,
         weights_only=False,
     )
     model.eval()
