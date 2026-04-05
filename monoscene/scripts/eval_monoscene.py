@@ -43,7 +43,7 @@ def main(config: DictConfig):
 
     trainer = Trainer(
         sync_batchnorm=True,
-        deterministic=True,
+        deterministic=False, #TODO make deterministic
         accelerator="gpu",
         devices=config.n_gpus,
     )
