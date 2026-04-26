@@ -1,5 +1,6 @@
 #dataset: "NYU" # "kitti", "kitti_360"
 dataset: "kitti_360"
+model: "dense" # "dense", "sparse"
 
 n_relations: 4
 

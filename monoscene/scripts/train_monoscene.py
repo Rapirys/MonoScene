@@ -9,7 +9,7 @@ from monoscene.data.NYU.params import (
 )
 from monoscene.data.NYU.nyu_dm import NYUDataModule
 from torch.utils.data.dataloader import DataLoader
-from monoscene.models.monoscene import MonoScene
+from monoscene.models.monoscene import get_monoscene_model_class
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
@@ -27,6 +27,7 @@ def main(config: DictConfig):
     torch.set_float32_matmul_precision(config.float32_matmul_precision)
     exp_name = config.exp_prefix
     exp_name += "_{}_{}".format(config.dataset, config.run)
+    exp_name += "_{}".format(config.model)
     exp_name += "_FrusSize_{}".format(config.frustum_size)
     exp_name += "_nRelations{}".format(config.n_relations)
     exp_name += "_WD{}_lr{}".format(config.weight_decay, config.lr)
@@ -98,7 +99,8 @@ def main(config: DictConfig):
     print(exp_name)
 
     # Initialize MonoScene model
-    model = MonoScene(
+    model_cls = get_monoscene_model_class(config.model)
+    model = model_cls(
         dataset=config.dataset,
         frustum_size=config.frustum_size,
         project_scale=project_scale,
@@ -117,6 +119,7 @@ def main(config: DictConfig):
         lr=config.lr,
         weight_decay=config.weight_decay,
         class_weights=class_weights,
+        use_visible_mask=config.use_visible_mask,
     )
 
     if config.enable_log:

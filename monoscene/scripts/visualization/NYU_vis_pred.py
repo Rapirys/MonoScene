@@ -141,7 +141,11 @@ def main(config: DictConfig):
     pred_scene = b["y_pred"]
     scan = os.path.basename(scan)[:12]
 
-    pred_scene[(gt_scene == 255)] = 255  # only draw scene inside the room
+    pred_scene[gt_scene == 255] = 255  # only draw scene inside the room
+
+    visible_mask = b.get("visible_mask_1_4")
+    if visible_mask is not None:
+        pred_scene[~visible_mask.astype(bool)] = 255
 
     draw(
         pred_scene,

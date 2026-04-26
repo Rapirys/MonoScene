@@ -1,5 +1,5 @@
 from pytorch_lightning import Trainer
-from monoscene.models.monoscene import MonoScene
+from monoscene.models.monoscene import get_monoscene_model_class
 from monoscene.data.NYU.nyu_dm import NYUDataModule
 from monoscene.data.semantic_kitti.kitti_dm import KittiDataModule
 from monoscene.data.kitti_360.kitti_360_dm import Kitti360DataModule
@@ -73,12 +73,14 @@ def main(config: DictConfig):
             get_original_cwd(), "trained_models", "monoscene_kitti.ckpt"
         )
 
-    model = MonoScene.load_from_checkpoint(
+    model_cls = get_monoscene_model_class(config.model)
+    model = model_cls.load_from_checkpoint(
         model_path,
         feature=feature,
         project_scale=project_scale,
         fp_loss=config.fp_loss,
         full_scene_size=full_scene_size,
+        use_visible_mask=config.use_visible_mask,
         weights_only=False,
     )
     model.cuda()
@@ -93,7 +95,7 @@ def main(config: DictConfig):
             pred = model(batch)
             y_pred = torch.softmax(pred["ssc_logit"], dim=1).detach().cpu().numpy()
             y_pred = np.argmax(y_pred, axis=1)
-            for i in range(config.batch_size):
+            for i in range(len(batch["img"])):
                 out_dict = {"y_pred": y_pred[i].astype(np.uint16)}
                 if "target" in batch:
                     out_dict["target"] = (
@@ -107,6 +109,14 @@ def main(config: DictConfig):
                     out_dict["vox_origin"] = (
                         batch["vox_origin"][i].detach().cpu().numpy()
                     )
+                    if "visible_mask_1_4" in batch and batch["visible_mask_1_4"]:
+                        out_dict["visible_mask_1_4"] = (
+                            batch["visible_mask_1_4"][i].detach().cpu().numpy()
+                        )
+                    if "query_coords" in pred:
+                        query_coords = pred["query_coords"]
+                        query_coords = query_coords[query_coords[:, 0] == i, 1:]
+                        out_dict["query_coords"] = query_coords.detach().cpu().numpy()
                 else:
                     write_path = os.path.join(output_path, batch["sequence"][i])
                     filepath = os.path.join(write_path, batch["frame_id"][i] + ".pkl")

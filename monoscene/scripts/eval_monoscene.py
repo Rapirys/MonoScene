@@ -1,5 +1,5 @@
 from pytorch_lightning import Trainer
-from monoscene.models.monoscene import MonoScene
+from monoscene.models.monoscene import get_monoscene_model_class
 from monoscene.data.NYU.nyu_dm import NYUDataModule
 from monoscene.data.semantic_kitti.kitti_dm import KittiDataModule
 import hydra
@@ -58,7 +58,8 @@ def main(config: DictConfig):
             get_original_cwd(), "trained_models", "monoscene_kitti.ckpt"
         )
 
-    model = MonoScene.load_from_checkpoint(
+    model_cls = get_monoscene_model_class(config.model)
+    model = model_cls.load_from_checkpoint(
         model_path,
         feature=feature,
         project_scale=project_scale,
