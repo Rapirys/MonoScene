@@ -148,7 +148,8 @@ def main(config: DictConfig):
         check_val_every_n_epoch=1,
         log_every_n_steps=10,
     )
-    trainer.fit(model, data_module, ckpt_path=model_path if os.path.isfile(model_path) else None)
+    ckpt_path = model_path if os.path.isfile(model_path) else None
+    trainer.fit(model, data_module, ckpt_path=ckpt_path, weights_only=False)
 
 
 if __name__ == "__main__":
