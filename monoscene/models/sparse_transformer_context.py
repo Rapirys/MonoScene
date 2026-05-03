@@ -38,8 +38,9 @@ class FlashSparseSelfAttention(nn.Module):
         max_seqlen = counts.max().item()
 
         qkv = self.qkv(x).view(x.size(0), 3, self.heads, self.head_dim)
+        qkv = qkv.to(torch.float16).contiguous()
         y = flash_attn_varlen_qkvpacked_func(
-            qkv.half(),
+            qkv,
             cu_seqlens,
             max_seqlen,
             self.dropout * self.training,
