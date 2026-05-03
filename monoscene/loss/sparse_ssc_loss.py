@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch
 import torch.nn.functional as F
 
 
@@ -66,4 +67,7 @@ def ratio(numerator, denominator):
 
 
 def unit_bce(value):
+    if not torch.isfinite(value):
+        raise RuntimeError(f"Non-finite sparse scaling metric: {value.item()}")
+    value = value.clamp(1e-6, 1 - 1e-6)
     return F.binary_cross_entropy(value, value.new_ones(()))
