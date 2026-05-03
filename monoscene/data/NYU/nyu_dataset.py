@@ -31,9 +31,11 @@ class NYUDataset(Dataset):
         color_jitter=None,
         frustum_size=4,
         fliplr=0.0,
+        sparse=False,
     ):
         self.n_relations = n_relations
         self.frustum_size = frustum_size
+        self.sparse = sparse
         self.n_classes = 12
         self.root = os.path.join(root, "NYU" + split)
         self.preprocess_root = preprocess_root
@@ -75,16 +77,8 @@ class NYUDataset(Dataset):
         T_world_2_cam = np.linalg.inv(cam_pose)
         vox_origin = data["voxel_origin"]
         data["cam_k"] = self.cam_k
-        target = data[
-            "target_1_4"
-        ]  # Following SSC literature, the output resolution on NYUv2 is set to 1:4
+        target = data["target_1_4"]
         data["target"] = target
-        target_1_4 = data["target_1_16"]
-
-        CP_mega_matrix = compute_CP_mega_matrix(
-            target_1_4, is_binary=self.n_relations == 2
-        )
-        data["CP_mega_matrix"] = CP_mega_matrix
 
         # compute the 3D-2D mapping
         projected_pix, fov_mask, pix_z = vox2pix(
@@ -97,8 +91,35 @@ class NYUDataset(Dataset):
             self.scene_size,
         )
         
+        rgb_path = os.path.join(self.root, name + "_color.jpg")
+        img = Image.open(rgb_path).convert("RGB")
+
+        # Image augmentation
+        if self.color_jitter is not None:
+            img = self.color_jitter(img)
+
+        # PIL to numpy
+        img = np.asarray(img, dtype=np.float32) / 255.0
+
+        # randomly fliplr the image
+        if np.random.rand() < self.fliplr:
+            img = np.ascontiguousarray(np.fliplr(img))
+            projected_pix[:, 0] = img.shape[1] - 1 - projected_pix[:, 0]
+
+        data["img"] = self.normalize_rgb(img)  # (3, img_H, img_W)
+        data["surface_mask"] = data.get("surface_mask", data["visible_mask_1_4"])
+        data["observed_mask"] = data.get("observed_mask", data["surface_mask"])
+
+        if self.sparse:
+            return self.sparse_data(data, projected_pix, fov_mask)
+
         data["projected_pix_1"] = projected_pix
         data["fov_mask_1"] = fov_mask
+
+        target_1_16 = data["target_1_16"]
+        data["CP_mega_matrix"] = compute_CP_mega_matrix(
+            target_1_16, is_binary=self.n_relations == 2
+        )
 
         # compute the masks, each indicates voxels inside a frustum
         frustums_masks, frustums_class_dists = compute_local_frustums(
@@ -113,27 +134,43 @@ class NYUDataset(Dataset):
         )
         data["frustums_masks"] = frustums_masks
         data["frustums_class_dists"] = frustums_class_dists
-
-        rgb_path = os.path.join(self.root, name + "_color.jpg")
-        img = Image.open(rgb_path).convert("RGB")
-
-        # Image augmentation
-        if self.color_jitter is not None:
-            img = self.color_jitter(img)
-
-        # PIL to numpy
-        img = np.asarray(img, dtype=np.float32) / 255.0
-
-        # randomly fliplr the image
-        if np.random.rand() < self.fliplr:
-            img = np.ascontiguousarray(np.fliplr(img))
-            data["projected_pix_1"][:, 0] = (
-                img.shape[1] - 1 - data["projected_pix_1"][:, 0]
-            )
-
-        data["img"] = self.normalize_rgb(img)  # (3, img_H, img_W)
+        data.pop("surface_coords", None)
+        data.pop("observed_coords", None)
+        data.pop("halo_mask", None)
+        data.pop("observed_halo_size", None)
 
         return data
+
+    def sparse_data(self, data, projected_pix, fov_mask):
+        coords = data.get("observed_coords")
+        coords = (
+            np.argwhere(data["observed_mask"]).astype(np.int32)
+            if coords is None
+            else coords
+        )
+        coords = coords.astype(np.int32, copy=False)
+        projected_pix, fov_mask = self.projection_volumes(projected_pix, fov_mask)
+        x, y, z = coords.T
+
+        return {
+            "cam_pose": data["cam_pose"],
+            "voxel_origin": data["voxel_origin"],
+            "cam_k": data["cam_k"],
+            "name": data["name"],
+            "img": data["img"],
+            "sparse_coords": coords,
+            "sparse_projected_pix_1": projected_pix[x, y, z],
+            "sparse_fov_mask_1": fov_mask[x, y, z],
+            "sparse_target": data["target"][x, y, z],
+        }
+
+    def projection_volumes(self, projected_pix, fov_mask):
+        grid_shape = np.ceil(np.array(self.scene_size) / self.voxel_size).astype(int)
+        projected_pix = projected_pix.reshape(*grid_shape, 2)
+        fov_mask = fov_mask.reshape(*grid_shape)
+        projected_pix = np.moveaxis(projected_pix, [0, 1, 2], [0, 2, 1])
+        fov_mask = np.moveaxis(fov_mask, [0, 1, 2], [0, 2, 1])
+        return projected_pix, fov_mask
 
     def __len__(self):
         return len(self.scan_names)

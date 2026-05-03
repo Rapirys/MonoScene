@@ -40,6 +40,7 @@ def main(config: DictConfig):
             frustum_size=config.frustum_size,
             batch_size=int(config.batch_size / config.n_gpus),
             num_workers=int(config.num_workers_per_gpu * config.n_gpus),
+            sparse=config.model == "sparse",
         )
 
     trainer = Trainer(
@@ -47,6 +48,7 @@ def main(config: DictConfig):
         deterministic=False, #TODO make deterministic
         accelerator="gpu",
         devices=config.n_gpus,
+        precision=config.precision,
     )
 
     if config.dataset == "NYU":
@@ -66,6 +68,9 @@ def main(config: DictConfig):
         fp_loss=config.fp_loss,
         full_scene_size=full_scene_size,
         use_visible_mask=config.use_visible_mask,
+        context_heads=config.context_heads,
+        context_depth=config.context_depth,
+        context_dropout=config.context_dropout,
         weights_only=False,
     )
     model.eval()

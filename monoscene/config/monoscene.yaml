@@ -16,7 +16,9 @@ logdir: '/path/to/NYU/logdir'
 
 fp_loss: true 
 use_visible_mask: true
+observed_halo_size: 5
 float32_matmul_precision: "medium"
+precision: "bf16-mixed"
 frustum_size: 8
 batch_size: 1
 n_gpus: 1
@@ -27,8 +29,11 @@ lr: 1e-4
 weight_decay: 1e-4 
 
 context_prior: true
+context_heads: 4
+context_depth: 2
+context_dropout: 0.05
 
-relation_loss: true 
+relation_loss: false
 CE_ssc_loss: true
 sem_scal_loss: true
 geo_scal_loss: true

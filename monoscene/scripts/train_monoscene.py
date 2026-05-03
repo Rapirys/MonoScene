@@ -83,6 +83,7 @@ def main(config: DictConfig):
             frustum_size=config.frustum_size,
             batch_size=int(config.batch_size / config.n_gpus),
             num_workers=int(config.num_workers_per_gpu * config.n_gpus),
+            sparse=config.model == "sparse",
         )
 
     project_res = ["1"]
@@ -120,6 +121,9 @@ def main(config: DictConfig):
         weight_decay=config.weight_decay,
         class_weights=class_weights,
         use_visible_mask=config.use_visible_mask,
+        context_heads=config.context_heads,
+        context_depth=config.context_depth,
+        context_dropout=config.context_dropout,
     )
 
     if config.enable_log:
@@ -147,6 +151,7 @@ def main(config: DictConfig):
         max_epochs=max_epochs,
         accelerator="gpu",
         devices=config.n_gpus,
+        precision=config.precision,
         logger=logger,
         check_val_every_n_epoch=1,
         log_every_n_steps=10,

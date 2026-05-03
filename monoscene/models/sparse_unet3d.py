@@ -2,7 +2,7 @@ import spconv.pytorch as spconv
 import torch.nn.functional as F
 from torch import nn
 
-from monoscene.models.CRP3D import CPMegaVoxels
+from monoscene.models.sparse_transformer_context import SparseTransformerContextAdapter
 
 
 class SparseBatchNorm(nn.Module):
@@ -171,38 +171,15 @@ class SparseSegmentationHead(nn.Module):
         return self.classifier(x.features)
 
 
-class DenseContextPriorAdapter(nn.Module):
-    def __init__(self, feature, size, n_relations, bn_momentum):
-        super().__init__()
-        self.context_prior = CPMegaVoxels(
-            feature,
-            size,
-            n_relations=n_relations,
-            bn_momentum=bn_momentum,
-        )
-        self.size = size
-
-    def forward(self, x):
-        coords = x.indices.long()
-        b, x_idx, y_idx, z_idx = coords.T
-        dense = x.features.new_zeros((x.batch_size, x.features.shape[1], *self.size))
-        dense[b, :, x_idx, y_idx, z_idx] = x.features
-
-        ret = self.context_prior(dense)
-        dense_features = ret["x"]
-        sampled = dense_features[b, :, x_idx, y_idx, z_idx]
-
-        return {"P_logits": ret["P_logits"], "x": x.replace_feature(sampled)}
-
-
 class SparseUNet3D(nn.Module):
     def __init__(
         self,
         class_num,
         feature,
-        full_scene_size,
-        n_relations=4,
         context_prior=True,
+        context_heads=4,
+        context_depth=2,
+        context_dropout=0.0,
         bn_momentum=0.1,
     ):
         super().__init__()
@@ -249,12 +226,11 @@ class SparseUNet3D(nn.Module):
         )
 
         if context_prior:
-            size_1_16 = tuple(int((dim + 3) // 4) for dim in full_scene_size)
-            self.cp_block = DenseContextPriorAdapter(
-                self.feature_1_16,
-                size_1_16,
-                n_relations=n_relations,
-                bn_momentum=bn_momentum,
+            self.context_block = SparseTransformerContextAdapter(
+                channels=self.feature_1_16,
+                heads=context_heads,
+                depth=context_depth,
+                dropout=context_dropout,
             )
 
     def forward(self, x):
@@ -265,9 +241,7 @@ class SparseUNet3D(nn.Module):
         x_1_16 = self.process_1_8(x_1_8)
 
         if self.context_prior:
-            cp_ret = self.cp_block(x_1_16)
-            x_1_16 = cp_ret["x"]
-            ret["P_logits"] = cp_ret["P_logits"]
+            x_1_16 = self.context_block(x_1_16)
 
         x_up_1_8 = self.up_1_16_1_8(x_1_16)
         x_up_1_8 = x_up_1_8.replace_feature(x_up_1_8.features + x_1_8.features)

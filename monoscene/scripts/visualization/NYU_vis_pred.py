@@ -128,6 +128,19 @@ def draw(
     mlab.show()
 
 
+def prediction_scene(output):
+    if "y_pred" in output:
+        pred = output["y_pred"]
+        if "target" in output:
+            pred[output["target"] == 255] = 255
+        return pred
+
+    pred = np.full((60, 36, 60), 255, dtype=np.uint16)
+    x, y, z = output["query_coords"].T
+    pred[x, y, z] = output["y_pred_sparse"]
+    return pred
+
+
 @hydra.main(config_path=None)
 def main(config: DictConfig):
     scan = config.file
@@ -137,15 +150,12 @@ def main(config: DictConfig):
 
     cam_pose = b["cam_pose"]
     vox_origin = b["vox_origin"]
-    gt_scene = b["target"]
-    pred_scene = b["y_pred"]
+    pred_scene = prediction_scene(b)
     scan = os.path.basename(scan)[:12]
 
-    pred_scene[gt_scene == 255] = 255  # only draw scene inside the room
-
-    visible_mask = b.get("visible_mask_1_4")
-    if visible_mask is not None:
-        pred_scene[~visible_mask.astype(bool)] = 255
+    observed_mask = b.get("observed_mask", b.get("visible_mask_1_4"))
+    if observed_mask is not None:
+        pred_scene[~observed_mask.astype(bool)] = 255
 
     draw(
         pred_scene,

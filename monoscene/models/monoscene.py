@@ -41,6 +41,9 @@ class MonoScene(pl.LightningModule):
         lr=1e-4,
         weight_decay=1e-4,
         use_visible_mask=False,
+        context_heads=4,
+        context_depth=2,
+        context_dropout=0.0,
     ):
         super().__init__()
 
@@ -59,6 +62,10 @@ class MonoScene(pl.LightningModule):
         self.lr = lr
         self.weight_decay = weight_decay
         self.use_visible_mask = use_visible_mask
+        self.full_scene_size = tuple(full_scene_size)
+        self.context_heads = context_heads
+        self.context_depth = context_depth
+        self.context_dropout = context_dropout
 
         self.n_classes = n_classes
         self.scale_2ds = [1, 2, 4, 8]  # 2D scales
@@ -84,12 +91,9 @@ class MonoScene(pl.LightningModule):
         raise NotImplementedError
 
     def visible_eval_mask(self, batch):
-        if not self.use_visible_mask or "visible_mask_1_4" not in batch:
+        if not self.use_visible_mask:
             return None
-        visible_mask = batch["visible_mask_1_4"]
-        if len(visible_mask) == 0:
-            return None
-        return torch.stack(visible_mask).cpu().numpy()
+        return torch.stack(batch["observed_mask"]).cpu().numpy()
 
     def log_loss(self, step_type, name, loss):
         self.log(step_type + "/" + name, loss.detach(), on_epoch=True, sync_dist=True)
@@ -284,9 +288,10 @@ class SparseMonoScene(MonoScene):
         return SparseUNet3D(
             self.n_classes,
             feature=feature,
-            full_scene_size=full_scene_size,
-            n_relations=n_relations,
             context_prior=context_prior,
+            context_heads=self.context_heads,
+            context_depth=self.context_depth,
+            context_dropout=self.context_dropout,
         )
 
     def forward(self, batch):
@@ -294,7 +299,7 @@ class SparseMonoScene(MonoScene):
         x_rgb = self.net_rgb(img)
         coords, features, query_coords, targets = self.sparse_inputs(batch, x_rgb, img.device)
 
-        spatial_shape = tuple(batch["target"].shape[1:])
+        spatial_shape = self.full_scene_size
         x_sparse = self.sparse_tensor(
             features,
             coords,
@@ -306,44 +311,27 @@ class SparseMonoScene(MonoScene):
         query_rows = self.coord_rows(out["query_coords"], query_coords, spatial_shape)
         out["query_coords"] = query_coords
         out["ssc_logit_sparse"] = out["ssc_logit_sparse"][query_rows]
-        out["ssc_logit"] = self.dense_grid_from_sparse(
-            out["query_coords"], out["ssc_logit_sparse"], spatial_shape, img.shape[0]
-        )
         out["ssc_target_sparse"] = targets
         return out
 
     def sparse_inputs(self, batch, x_rgb, device):
         coords, features, query_coords, targets = [], [], [], []
         for batch_idx in range(batch["img"].shape[0]):
-            lift_mask = self.lift_mask(batch, batch_idx, device)
-            query_mask = self.query_mask(batch, batch_idx, device)
-
-            projected_pix = batch["projected_pix_1"][batch_idx].to(device).long()
-            fov_mask = batch["fov_mask_1"][batch_idx].to(device).bool()
-
-            projected_pix = projected_pix[lift_mask.reshape(-1)]
-            fov_mask = fov_mask[lift_mask.reshape(-1)]
+            coord = batch["sparse_coords"][batch_idx].to(device).int()
+            projected_pix = batch["sparse_projected_pix_1"][batch_idx].to(device).long()
+            fov_mask = batch["sparse_fov_mask_1"][batch_idx].to(device).bool()
             feature = self.lift_features(x_rgb, batch_idx, projected_pix, fov_mask)
 
-            lift_coords = lift_mask.nonzero(as_tuple=False).int()
-            query_coord = query_mask.nonzero(as_tuple=False).int()
-
-            coords.append(self.add_batch_column(lift_coords, batch_idx))
+            coords.append(self.add_batch_column(coord, batch_idx))
             features.append(feature)
-            query_coords.append(self.add_batch_column(query_coord, batch_idx))
-            targets.append(batch["target"][batch_idx].to(device)[query_mask])
+            query_coords.append(self.add_batch_column(coord, batch_idx))
+            targets.append(batch["sparse_target"][batch_idx].to(device))
 
         coords = torch.cat(coords)
         features = torch.cat(features)
         query_coords = torch.cat(query_coords)
         coords, features, query_coords = self.merge_sparse_inputs(coords, features, query_coords)
         return coords, features, query_coords, torch.cat(targets)
-
-    def lift_mask(self, batch, batch_idx, device):
-        return batch["visible_mask_1_4"][batch_idx].to(device).bool()
-
-    def query_mask(self, batch, batch_idx, device):
-        return batch["visible_mask_1_4"][batch_idx].to(device).bool()
 
     def merge_sparse_inputs(self, coords, features, query_coords):
         n = coords.shape[0]
@@ -414,13 +402,6 @@ class SparseMonoScene(MonoScene):
         logits = out_dict["ssc_logit_sparse"]
         target = out_dict["ssc_target_sparse"]
 
-        if self.context_prior and self.relation_loss:
-            loss_rel_ce = compute_super_CP_multilabel_loss(
-                out_dict["P_logits"], batch["CP_mega_matrices"]
-            )
-            loss += loss_rel_ce
-            self.log_loss(step_type, "loss_relation_ce_super", loss_rel_ce)
-
         class_weight = self.class_weights.type_as(batch["img"])
         if self.CE_ssc_loss:
             loss_ssc = sparse_ce_ssc_loss(logits, target, class_weight)
@@ -437,15 +418,9 @@ class SparseMonoScene(MonoScene):
             loss += loss_geo_scal
             self.log_loss(step_type, "loss_geo_scal", loss_geo_scal)
 
-        y_true = batch["target"].cpu().numpy()
-        y_pred_sparse = logits.detach().argmax(dim=1)
-        y_pred = self.dense_grid_from_sparse(
-            out_dict["query_coords"],
-            y_pred_sparse,
-            tuple(batch["target"].shape[1:]),
-            batch["target"].shape[0],
-        ).cpu().numpy()
-        metric.add_batch(y_pred, y_true, nonempty=self.visible_eval_mask(batch))
+        y_true = target.detach().cpu().numpy()[None, :]
+        y_pred = logits.detach().argmax(dim=1).cpu().numpy()[None, :]
+        metric.add_batch(y_pred, y_true)
 
         self.log_loss(step_type, "loss", loss)
         return loss

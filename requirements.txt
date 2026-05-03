@@ -14,3 +14,4 @@ numba>=0.60
 imageio>=2.34
 protobuf>=4.25
 spconv-cu121
+flash-attn

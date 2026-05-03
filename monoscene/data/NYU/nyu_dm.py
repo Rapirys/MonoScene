@@ -14,6 +14,7 @@ class NYUDataModule(pl.LightningDataModule):
         batch_size=4,
         frustum_size=4,
         num_workers=6,
+        sparse=False,
     ):
         super().__init__()
         self.n_relations = n_relations
@@ -22,6 +23,7 @@ class NYUDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.frustum_size = frustum_size
+        self.sparse = sparse
 
     def _dataloader_kwargs(self):
         if self.num_workers == 0:
@@ -41,6 +43,7 @@ class NYUDataModule(pl.LightningDataModule):
             fliplr=0.5,
             frustum_size=self.frustum_size,
             color_jitter=(0.4, 0.4, 0.4),
+            sparse=self.sparse,
         )
         self.test_ds = NYUDataset(
             split="test",
@@ -50,6 +53,7 @@ class NYUDataModule(pl.LightningDataModule):
             frustum_size=self.frustum_size,
             fliplr=0.0,
             color_jitter=None,
+            sparse=self.sparse,
         )
 
     def train_dataloader(self):

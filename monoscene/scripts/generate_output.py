@@ -13,6 +13,10 @@ from tqdm import tqdm
 import pickle
 
 
+def autocast_dtype(precision):
+    return torch.float16 if str(precision).startswith("16") else torch.bfloat16
+
+
 @hydra.main(version_base=None, config_path="../config", config_name="monoscene.yaml")
 def main(config: DictConfig):
     torch.set_grad_enabled(False)
@@ -56,6 +60,7 @@ def main(config: DictConfig):
             frustum_size=config.frustum_size,
             batch_size=int(config.batch_size / config.n_gpus),
             num_workers=int(config.num_workers_per_gpu * config.n_gpus),
+            sparse=config.model == "sparse",
         )
         data_module.setup()
         data_loader = data_module.val_dataloader()
@@ -81,6 +86,9 @@ def main(config: DictConfig):
         fp_loss=config.fp_loss,
         full_scene_size=full_scene_size,
         use_visible_mask=config.use_visible_mask,
+        context_heads=config.context_heads,
+        context_depth=config.context_depth,
+        context_dropout=config.context_dropout,
         weights_only=False,
     )
     model.cuda()
@@ -92,11 +100,27 @@ def main(config: DictConfig):
     with torch.no_grad():
         for batch in tqdm(data_loader):
             batch["img"] = batch["img"].cuda()
-            pred = model(batch)
-            y_pred = torch.softmax(pred["ssc_logit"], dim=1).detach().cpu().numpy()
-            y_pred = np.argmax(y_pred, axis=1)
+            with torch.autocast("cuda", dtype=autocast_dtype(config.precision)):
+                pred = model(batch)
+            dense_pred = "ssc_logit" in pred
+            if dense_pred:
+                y_pred = torch.softmax(pred["ssc_logit"], dim=1).detach().cpu().numpy()
+                y_pred = np.argmax(y_pred, axis=1)
+            else:
+                y_pred = pred["ssc_logit_sparse"].argmax(dim=1).detach().cpu()
+
             for i in range(len(batch["img"])):
-                out_dict = {"y_pred": y_pred[i].astype(np.uint16)}
+                if dense_pred:
+                    out_dict = {"y_pred": y_pred[i].astype(np.uint16)}
+                else:
+                    query_coords = pred["query_coords"].detach().cpu()
+                    query_mask = (query_coords[:, 0] == i).detach().cpu()
+                    out_dict = {
+                        "y_pred_sparse": y_pred[query_mask].numpy().astype(np.uint16),
+                        "query_coords": query_coords[query_mask, 1:].numpy(),
+                        "target_sparse": batch["sparse_target"][i].detach().cpu().numpy(),
+                    }
+
                 if "target" in batch:
                     out_dict["target"] = (
                         batch["target"][i].detach().cpu().numpy().astype(np.uint16)
@@ -109,11 +133,11 @@ def main(config: DictConfig):
                     out_dict["vox_origin"] = (
                         batch["vox_origin"][i].detach().cpu().numpy()
                     )
-                    if "visible_mask_1_4" in batch and batch["visible_mask_1_4"]:
-                        out_dict["visible_mask_1_4"] = (
-                            batch["visible_mask_1_4"][i].detach().cpu().numpy()
+                    if "observed_mask" in batch and batch["observed_mask"]:
+                        out_dict["observed_mask"] = (
+                            batch["observed_mask"][i].detach().cpu().numpy()
                         )
-                    if "query_coords" in pred:
+                    if dense_pred and "query_coords" in pred:
                         query_coords = pred["query_coords"]
                         query_coords = query_coords[query_coords[:, 0] == i, 1:]
                         out_dict["query_coords"] = query_coords.detach().cpu().numpy()
