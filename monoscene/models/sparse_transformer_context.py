@@ -39,13 +39,14 @@ class FlashSparseSelfAttention(nn.Module):
 
         qkv = self.qkv(x).view(x.size(0), 3, self.heads, self.head_dim)
         y = flash_attn_varlen_qkvpacked_func(
-            qkv,
+            qkv.half(),
             cu_seqlens,
             max_seqlen,
             self.dropout * self.training,
             causal=False,
         )
-        return self.out(y.reshape(y.size(0), -1))[undo]
+        y = y.reshape(y.size(0), -1).to(x.dtype)
+        return self.out(y)[undo]
 
 
 class SparseTransformerBlock(nn.Module):

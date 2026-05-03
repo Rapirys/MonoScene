@@ -14,7 +14,11 @@ import pickle
 
 
 def autocast_dtype(precision):
-    return torch.float16 if str(precision).startswith("16") else torch.bfloat16
+    if str(precision).startswith("16"):
+        return torch.float16
+    if str(precision).startswith("bf16"):
+        return torch.bfloat16
+    return None
 
 
 @hydra.main(version_base=None, config_path="../config", config_name="monoscene.yaml")
@@ -100,7 +104,8 @@ def main(config: DictConfig):
     with torch.no_grad():
         for batch in tqdm(data_loader):
             batch["img"] = batch["img"].cuda()
-            with torch.autocast("cuda", dtype=autocast_dtype(config.precision)):
+            dtype = autocast_dtype(config.precision)
+            with torch.autocast("cuda", dtype=dtype, enabled=dtype is not None):
                 pred = model(batch)
             dense_pred = "ssc_logit" in pred
             if dense_pred:
