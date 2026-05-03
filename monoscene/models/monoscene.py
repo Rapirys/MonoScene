@@ -376,7 +376,15 @@ class SparseMonoScene(MonoScene):
         keys = self.coord_keys(coords, spatial_shape)
         query_keys = self.coord_keys(query_coords, spatial_shape)
         order = keys.argsort()
-        return order[torch.searchsorted(keys[order], query_keys)]
+        sorted_keys = keys[order]
+        rows = torch.searchsorted(sorted_keys, query_keys)
+        found = rows < sorted_keys.shape[0]
+        matched = found.clone()
+        matched[found] = sorted_keys[rows[found]] == query_keys[found]
+        if not matched.all():
+            missing = query_coords[~matched][:10].detach().cpu().tolist()
+            raise RuntimeError(f"Decoder dropped sparse query coordinates: {missing}")
+        return order[rows]
 
     def coord_keys(self, coords, spatial_shape):
         b, x, y, z = coords.long().T
@@ -401,6 +409,7 @@ class SparseMonoScene(MonoScene):
         out_dict = self(batch)
         logits = out_dict["ssc_logit_sparse"]
         target = out_dict["ssc_target_sparse"]
+        self.validate_sparse_logits(logits, target)
 
         class_weight = self.class_weights.type_as(batch["img"])
         if self.CE_ssc_loss:
@@ -424,6 +433,15 @@ class SparseMonoScene(MonoScene):
 
         self.log_loss(step_type, "loss", loss)
         return loss
+
+    def validate_sparse_logits(self, logits, target):
+        if logits.shape[0] != target.shape[0]:
+            raise RuntimeError(f"Sparse logits/target length mismatch: {logits.shape} vs {target.shape}")
+
+        invalid = (target != 255) & ((target < 0) | (target >= logits.shape[1]))
+        if invalid.any():
+            labels = target[invalid].detach().cpu().unique().tolist()
+            raise RuntimeError(f"Invalid sparse target labels for {logits.shape[1]} classes: {labels}")
 
 
 MONOSCENE_MODELS = {
