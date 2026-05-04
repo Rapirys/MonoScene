@@ -61,9 +61,12 @@ def valid_probs(logits, target):
 
 
 def ratio_bce(numerator, denominator):
-    if denominator <= 1e-6:
-        return numerator * 0
-    return unit_bce(numerator / denominator)
+    if (denominator <= 1e-6) or (not torch.isfinite(denominator)):
+        return denominator.new_zeros(())
+    value = numerator / denominator
+    if not torch.isfinite(value):
+        return value.new_zeros(())
+    return unit_bce(value)
 
 
 def unit_bce(value):
