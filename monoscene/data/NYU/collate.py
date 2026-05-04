@@ -37,12 +37,4 @@ def collate_fn(batch):
 
     for key, values in optional.items():
         ret_data[key] = torch.stack(values) if key == "target" else values
-    if "sparse_coords" in ret_data:
-        sparse_coords = ret_data["sparse_coords"]
-        ret_data["sparse_coords"] = torch.cat([
-            torch.cat((coords.new_full((coords.shape[0], 1), idx), coords), dim=1)
-            for idx, coords in enumerate(sparse_coords)
-        ])
-        for key in ("sparse_projected_pix_1", "sparse_fov_mask_1", "sparse_target"):
-            ret_data[key] = torch.cat(ret_data[key])
     return ret_data

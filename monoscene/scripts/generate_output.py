@@ -123,7 +123,7 @@ def main(config: DictConfig):
                     out_dict = {
                         "y_pred_sparse": y_pred[query_mask].numpy().astype(np.uint16),
                         "query_coords": query_coords[query_mask, 1:].numpy(),
-                        "target_sparse": batch["sparse_target"][query_mask].detach().cpu().numpy(),
+                        "target_sparse": batch["sparse_target"][i].detach().cpu().numpy(),
                     }
 
                 if "target" in batch:
