@@ -38,7 +38,7 @@ class FlashSparseSelfAttention(nn.Module):
         max_seqlen = counts.max().item()
 
         qkv = self.qkv(x).view(x.size(0), 3, self.heads, self.head_dim)
-        qkv = qkv.to(torch.float16).contiguous()
+        qkv = qkv.to(torch.bfloat16).contiguous()
         y = flash_attn_varlen_qkvpacked_func(
             qkv,
             cu_seqlens,
@@ -64,7 +64,6 @@ class SparseTransformerBlock(nn.Module):
             nn.Dropout(dropout),
             nn.Linear(channels * 2, channels),
         )
-        self.dropout = nn.Dropout(dropout)
         self.ffn_norm = nn.LayerNorm(channels)
 
     def forward(self, x):
@@ -74,8 +73,8 @@ class SparseTransformerBlock(nn.Module):
         zyx = coords[:, 1:].float()
 
         tokens = features + self.pos(zyx, x.spatial_shape)
-        out = features + self.dropout(self.attn(self.attn_norm(tokens), batch_ids))
-        out = out + self.dropout(self.ffn(self.ffn_norm(out)))
+        out = features + self.attn(self.attn_norm(tokens), batch_ids)
+        out = out + self.ffn(self.ffn_norm(out))
         return x.replace_feature(out)
 
 
