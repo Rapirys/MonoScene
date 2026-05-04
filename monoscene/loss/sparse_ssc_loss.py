@@ -24,14 +24,13 @@ def sparse_geo_scal_loss(logits, target):
 
     # This is the dense geometric scaling loss on occupied vs. empty points.
     intersection = (nonempty_target * nonempty_probs).sum()
-    precision = ratio(intersection, nonempty_probs.sum())
-    recall = ratio(intersection, nonempty_target.sum())
-    specificity = ratio(
+    loss = logits.sum() * 0
+    loss = loss + ratio_bce(intersection, nonempty_probs.sum())
+    loss = loss + ratio_bce(intersection, nonempty_target.sum())
+    return loss + ratio_bce(
         ((1 - nonempty_target) * empty_probs).sum(),
         (1 - nonempty_target).sum(),
     )
-
-    return unit_bce(precision) + unit_bce(recall) + unit_bce(specificity)
 
 
 def sparse_sem_scal_loss(logits, target):
@@ -47,23 +46,24 @@ def sparse_sem_scal_loss(logits, target):
         class_target = (target == class_idx).float()
         intersection = (class_prob * class_target).sum()
 
-        precision = ratio(intersection, class_prob.sum())
-        recall = ratio(intersection, class_target.sum())
-        specificity = ratio(
+        loss = loss + ratio_bce(intersection, class_prob.sum())
+        loss = loss + ratio_bce(intersection, class_target.sum())
+        loss = loss + ratio_bce(
             ((1 - class_prob) * (1 - class_target)).sum(),
             (1 - class_target).sum(),
         )
-        loss = loss + unit_bce(precision) + unit_bce(recall) + unit_bce(specificity)
     return loss / classes.numel()
 
 
 def valid_probs(logits, target):
     valid = target != 255
-    return F.softmax(logits[valid], dim=1), target[valid].long()
+    return F.softmax(logits[valid].float(), dim=1), target[valid].long()
 
 
-def ratio(numerator, denominator):
-    return numerator / denominator.clamp_min(1e-6)
+def ratio_bce(numerator, denominator):
+    if denominator <= 1e-6:
+        return numerator * 0
+    return unit_bce(numerator / denominator)
 
 
 def unit_bce(value):
