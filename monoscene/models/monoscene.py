@@ -315,23 +315,13 @@ class SparseMonoScene(MonoScene):
         return out
 
     def sparse_inputs(self, batch, x_rgb, device):
-        coords, features, query_coords, targets = [], [], [], []
-        for batch_idx in range(batch["img"].shape[0]):
-            coord = batch["sparse_coords"][batch_idx].to(device).int()
-            projected_pix = batch["sparse_projected_pix_1"][batch_idx].to(device).long()
-            fov_mask = batch["sparse_fov_mask_1"][batch_idx].to(device).bool()
-            feature = self.lift_features(x_rgb, batch_idx, projected_pix, fov_mask)
-
-            coords.append(self.add_batch_column(coord, batch_idx))
-            features.append(feature)
-            query_coords.append(self.add_batch_column(coord, batch_idx))
-            targets.append(batch["sparse_target"][batch_idx].to(device))
-
-        coords = torch.cat(coords)
-        features = torch.cat(features)
-        query_coords = torch.cat(query_coords)
+        coords = batch["sparse_coords"].to(device).int()
+        projected_pix = batch["sparse_projected_pix_1"].to(device).long()
+        fov_mask = batch["sparse_fov_mask_1"].to(device).bool()
+        features = self.lift_features(x_rgb, coords[:, 0].long(), projected_pix, fov_mask)
+        query_coords = coords
         coords, features, query_coords = self.merge_sparse_inputs(coords, features, query_coords)
-        return coords, features, query_coords, torch.cat(targets)
+        return coords, features, query_coords, batch["sparse_target"].to(device)
 
     def merge_sparse_inputs(self, coords, features, query_coords):
         n = coords.shape[0]
@@ -342,16 +332,13 @@ class SparseMonoScene(MonoScene):
         merged_features.index_add_(0, inv[:n], features)
         return coords, merged_features, query_coords
 
-    def add_batch_column(self, coord, batch_idx):
-        batch_column = coord.new_full((coord.shape[0], 1), batch_idx)
-        return torch.cat((batch_column, coord), dim=1)
-
-    def lift_features(self, x_rgb, batch_idx, projected_pix, fov_mask):
+    def lift_features(self, x_rgb, batch_ids, projected_pix, fov_mask):
         feature = None
         for scale_2d in self.project_res:
             scale_2d = int(scale_2d)
             gathered = self.lift_visible_features(
-                x_rgb[f"1_{scale_2d}"][batch_idx],
+                x_rgb[f"1_{scale_2d}"],
+                batch_ids,
                 projected_pix,
                 fov_mask,
                 scale_2d,
@@ -359,13 +346,13 @@ class SparseMonoScene(MonoScene):
             feature = gathered if feature is None else feature + gathered
         return feature
 
-    def lift_visible_features(self, x2d, projected_pix, fov_mask, scale_2d):
-        _, h, w = x2d.shape
+    def lift_visible_features(self, x2d, batch_ids, projected_pix, fov_mask, scale_2d):
+        _, _, h, w = x2d.shape
         pix = projected_pix // scale_2d
         pix_x = pix[:, 0].clamp_(0, w - 1)
         pix_y = pix[:, 1].clamp_(0, h - 1)
 
-        features = x2d[:, pix_y, pix_x].transpose(0, 1).contiguous()
+        features = x2d[batch_ids, :, pix_y, pix_x].contiguous()
         if fov_mask.all():
             return features
 

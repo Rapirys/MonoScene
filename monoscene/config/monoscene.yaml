@@ -1,6 +1,6 @@
 #dataset: "NYU" # "kitti", "kitti_360"
 dataset: "kitti_360"
-model: "dense" # "dense", "sparse"
+model: "sparse" # "dense", "sparse"
 
 n_relations: 4
 
@@ -25,7 +25,7 @@ n_gpus: 1
 num_workers_per_gpu: 3 
 exp_prefix: "exp"
 run: 1
-lr: 1e-4
+lr: 2e-4
 weight_decay: 1e-4 
 
 context_prior: true
@@ -38,6 +38,7 @@ CE_ssc_loss: true
 sem_scal_loss: true
 geo_scal_loss: true
 
+project_1_1: false
 project_1_2: true
 project_1_4: true
 project_1_8: true

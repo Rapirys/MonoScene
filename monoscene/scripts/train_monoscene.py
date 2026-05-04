@@ -86,7 +86,10 @@ def main(config: DictConfig):
             sparse=config.model == "sparse",
         )
 
-    project_res = ["1"]
+    project_res = []
+    if config.project_1_1:
+        exp_name += "_Proj_2"
+        project_res.append("1")
     if config.project_1_2:
         exp_name += "_Proj_2"
         project_res.append("2")
@@ -96,6 +99,7 @@ def main(config: DictConfig):
     if config.project_1_8:
         exp_name += "_8"
         project_res.append("8")
+    project_res = ["1"] if not project_res else project_res
 
     print(exp_name)
 
