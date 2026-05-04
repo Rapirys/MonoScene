@@ -57,6 +57,7 @@ class SparseTransformerBlock(nn.Module):
 
         self.pos = SparseCoordPE(channels)
         self.attn = FlashSparseSelfAttention(channels, heads, dropout)
+        self.attn_norm = nn.LayerNorm(channels)
         self.ffn = nn.Sequential(
             nn.Linear(channels, channels * 2),
             nn.GELU(),
@@ -64,7 +65,6 @@ class SparseTransformerBlock(nn.Module):
             nn.Linear(channels * 2, channels),
         )
         self.dropout = nn.Dropout(dropout)
-        self.attn_norm = nn.LayerNorm(channels)
         self.ffn_norm = nn.LayerNorm(channels)
 
     def forward(self, x):
@@ -74,9 +74,8 @@ class SparseTransformerBlock(nn.Module):
         zyx = coords[:, 1:].float()
 
         tokens = features + self.pos(zyx, x.spatial_shape)
-        attended = self.attn(tokens, batch_ids)
-        out = self.attn_norm(features + self.dropout(attended))
-        out = self.ffn_norm(out + self.dropout(self.ffn(out)))
+        out = features + self.dropout(self.attn(self.attn_norm(tokens), batch_ids))
+        out = out + self.dropout(self.ffn(self.ffn_norm(out)))
         return x.replace_feature(out)
 
 
