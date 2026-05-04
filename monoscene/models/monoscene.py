@@ -96,7 +96,10 @@ class MonoScene(pl.LightningModule):
         return torch.stack(batch["observed_mask"]).cpu().numpy()
 
     def log_loss(self, step_type, name, loss):
-        self.log(step_type + "/" + name, loss.detach(), on_epoch=True, sync_dist=True)
+        loss_value = loss.detach()
+        self.log(step_type + "/" + name, loss_value, on_epoch=True, sync_dist=True)
+        if step_type != "train" or not torch.isfinite(loss_value):
+            print(f"{step_type}/{name}: {loss_value.item():.6g}")
 
     def training_step(self, batch, batch_idx):
         return self.step(batch, "train", self.train_metrics)
