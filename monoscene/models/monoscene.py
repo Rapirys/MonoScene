@@ -97,8 +97,14 @@ class MonoScene(pl.LightningModule):
 
     def log_loss(self, step_type, name, loss):
         loss_value = loss.detach()
-        self.log(step_type + "/" + name, loss_value, on_epoch=True, sync_dist=True)
-        if step_type != "train" or not torch.isfinite(loss_value):
+        self.log(
+            step_type + "/" + name,
+            loss_value,
+            on_epoch=True,
+            prog_bar=step_type != "train",
+            sync_dist=True,
+        )
+        if not torch.isfinite(loss_value):
             print(f"{step_type}/{name}: {loss_value.item():.6g}")
 
     def training_step(self, batch, batch_idx):
