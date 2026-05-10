@@ -109,9 +109,9 @@ def main(config: DictConfig):
                     out_dict["vox_origin"] = (
                         batch["vox_origin"][i].detach().cpu().numpy()
                     )
-                    if "visible_mask_1_4" in batch and batch["visible_mask_1_4"]:
-                        out_dict["visible_mask_1_4"] = (
-                            batch["visible_mask_1_4"][i].detach().cpu().numpy()
+                    if "observed_mask" in batch and batch["observed_mask"]:
+                        out_dict["observed_mask"] = (
+                            batch["observed_mask"][i].detach().cpu().numpy()
                         )
                     if "query_coords" in pred:
                         query_coords = pred["query_coords"]

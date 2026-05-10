@@ -84,9 +84,9 @@ class MonoScene(pl.LightningModule):
         raise NotImplementedError
 
     def visible_eval_mask(self, batch):
-        if not self.use_visible_mask or "visible_mask_1_4" not in batch:
+        if not self.use_visible_mask or "observed_mask" not in batch:
             return None
-        visible_mask = batch["visible_mask_1_4"]
+        visible_mask = batch["observed_mask"]
         if len(visible_mask) == 0:
             return None
         return torch.stack(visible_mask).cpu().numpy()
@@ -340,10 +340,10 @@ class SparseMonoScene(MonoScene):
         return coords, features, query_coords, torch.cat(targets)
 
     def lift_mask(self, batch, batch_idx, device):
-        return batch["visible_mask_1_4"][batch_idx].to(device).bool()
+        return batch["observed_mask"][batch_idx].to(device).bool()
 
     def query_mask(self, batch, batch_idx, device):
-        return batch["visible_mask_1_4"][batch_idx].to(device).bool()
+        return batch["observed_mask"][batch_idx].to(device).bool()
 
     def merge_sparse_inputs(self, coords, features, query_coords):
         n = coords.shape[0]

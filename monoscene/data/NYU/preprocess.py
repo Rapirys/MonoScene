@@ -149,6 +149,29 @@ def _downsample_label(label, voxel_size=(240, 144, 240), downscale=4):
             ]
             label_downscale[x, y, z] = np.argmax(np.bincount(label_i_s))
     return label_downscale
+
+
+def _expand_mask(mask, kernel_size):
+    radius = kernel_size // 2
+    offsets = np.stack(
+        np.meshgrid(
+            np.arange(-radius, radius + 1),
+            np.arange(-radius, radius + 1),
+            np.arange(-radius, radius + 1),
+            indexing="ij",
+        ),
+        axis=-1,
+    ).reshape(-1, 3)
+
+    coords = np.argwhere(mask)[:, None, :] + offsets[None, :, :]
+    coords = coords.reshape(-1, 3)
+    coords = coords[((0 <= coords) & (coords < mask.shape)).all(axis=1)]
+
+    expanded = np.zeros_like(mask, dtype=np.bool_)
+    expanded[tuple(np.unique(coords, axis=0).T)] = True
+    return expanded
+
+
 @hydra.main(version_base=None, config_path="../../config", config_name="monoscene.yaml")
 def main(config: DictConfig):
     scene_size = (240, 144, 240)
@@ -163,7 +186,10 @@ def main(config: DictConfig):
             name = filename[:-4]
             filepath = os.path.join(base_dir, name + ".pkl")
             if os.path.exists(filepath):
-                continue
+                with open(filepath, "rb") as handle:
+                    existing = pickle.load(handle)
+                if existing.get("observed_halo_size") == config.observed_halo_size:
+                    continue
 
             vox_origin, cam_pose, rle = _read_rle(scan)
 
@@ -171,9 +197,10 @@ def main(config: DictConfig):
             target_1_1 = _rle2voxel(rle, scene_size, scan)
             target_1_4 = _downsample_label(target_1_1, scene_size, 4)
             target_1_16 = _downsample_label(target_1_1, scene_size, 16)
-            visible_mask_1_4 = depth2vox(
+            surface_mask = depth2vox(
                 cam_pose, NYU_CAM_K, vox_origin, NYU_VOXEL_SIZE, NYU_IMG_W, NYU_IMG_H, NYU_SCENE_SIZE, depth)
-            visible_mask_1_4 = np.moveaxis(visible_mask_1_4, [0, 1, 2], [0, 2, 1])
+            surface_mask = np.moveaxis(surface_mask, [0, 1, 2], [0, 2, 1])
+            observed_mask = _expand_mask(surface_mask, config.observed_halo_size)
 
             data = {
                 "cam_pose": cam_pose,
@@ -181,7 +208,13 @@ def main(config: DictConfig):
                 "name": name,
                 "target_1_4": target_1_4,
                 "target_1_16": target_1_16,
-                "visible_mask_1_4": visible_mask_1_4,
+                "surface_mask": surface_mask,
+                "observed_mask": observed_mask,
+                "halo_mask": observed_mask & ~surface_mask,
+                "surface_coords": np.argwhere(surface_mask).astype(np.int32),
+                "observed_coords": np.argwhere(observed_mask).astype(np.int32),
+                "observed_halo_size": config.observed_halo_size,
+                "visible_mask_1_4": surface_mask,
             }
 
             with open(filepath, "wb") as handle:

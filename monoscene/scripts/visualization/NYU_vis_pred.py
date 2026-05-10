@@ -143,9 +143,9 @@ def main(config: DictConfig):
 
     pred_scene[gt_scene == 255] = 255  # only draw scene inside the room
 
-    visible_mask = b.get("visible_mask_1_4")
-    if visible_mask is not None:
-        pred_scene[~visible_mask.astype(bool)] = 255
+    observed_mask = b.get("observed_mask", b.get("visible_mask_1_4"))
+    if observed_mask is not None:
+        pred_scene[~observed_mask.astype(bool)] = 255
 
     draw(
         pred_scene,

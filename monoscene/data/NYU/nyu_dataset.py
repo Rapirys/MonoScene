@@ -75,9 +75,7 @@ class NYUDataset(Dataset):
         T_world_2_cam = np.linalg.inv(cam_pose)
         vox_origin = data["voxel_origin"]
         data["cam_k"] = self.cam_k
-        target = data[
-            "target_1_4"
-        ]  # Following SSC literature, the output resolution on NYUv2 is set to 1:4
+        target = data["target_1_4"]
         data["target"] = target
         target_1_4 = data["target_1_16"]
 
@@ -97,6 +95,9 @@ class NYUDataset(Dataset):
             self.scene_size,
         )
         
+        data["surface_mask"] = data.get("surface_mask", data["visible_mask_1_4"])
+        data["observed_mask"] = data.get("observed_mask", data["surface_mask"])
+
         data["projected_pix_1"] = projected_pix
         data["fov_mask_1"] = fov_mask
 
@@ -132,6 +133,10 @@ class NYUDataset(Dataset):
             )
 
         data["img"] = self.normalize_rgb(img)  # (3, img_H, img_W)
+        data.pop("surface_coords", None)
+        data.pop("observed_coords", None)
+        data.pop("halo_mask", None)
+        data.pop("observed_halo_size", None)
 
         return data
 

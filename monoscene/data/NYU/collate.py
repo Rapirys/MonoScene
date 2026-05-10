@@ -18,6 +18,8 @@ def collate_fn(batch):
     data["frustums_masks"] = []
     data["frustums_class_dists"] = []
     data["visible_mask_1_4"] = []
+    data["surface_mask"] = []
+    data["observed_mask"] = []
 
     for idx, input_dict in enumerate(batch):
         CP_mega_matrices.append(torch.from_numpy(input_dict["CP_mega_matrix"]))

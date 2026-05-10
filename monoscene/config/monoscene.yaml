@@ -16,6 +16,7 @@ logdir: '/path/to/NYU/logdir'
 
 fp_loss: true 
 use_visible_mask: true
+observed_halo_size: 5
 float32_matmul_precision: "medium"
 frustum_size: 8
 batch_size: 1
