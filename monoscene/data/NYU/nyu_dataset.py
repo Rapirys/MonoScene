@@ -95,7 +95,7 @@ class NYUDataset(Dataset):
             self.scene_size,
         )
         
-        data["surface_mask"] = data.get("surface_mask", data["visible_mask_1_4"])
+        data["surface_mask"] = self.surface_mask(data)
         data["observed_mask"] = data.get("observed_mask", data["surface_mask"])
 
         data["projected_pix_1"] = projected_pix
@@ -139,6 +139,11 @@ class NYUDataset(Dataset):
         data.pop("observed_halo_size", None)
 
         return data
+
+    def surface_mask(self, data):
+        if "surface_mask" in data:
+            return data["surface_mask"]
+        return data["visible_mask_1_4"]
 
     def __len__(self):
         return len(self.scan_names)
